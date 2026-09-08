@@ -1,3 +1,11 @@
+"""
+Serial data logger for the Car Cabin Temperature Prediction System.
+
+Receives temperature samples and prediction messages from the ESP32,
+stores test data in CSV files, and calculates prediction error when a
+test is completed.
+"""
+
 import serial
 import csv
 import os
@@ -16,7 +24,7 @@ DATA_FOLDER = (
     r"\Documents\TemperatureSensorProject\Data"
 )
 
-# Initial prediction model times
+# Initial prediction windows evaluated by the ESP32.
 MODEL_TIMES = [30, 45, 60]
 
 INITIAL_FILES = {}
@@ -58,7 +66,7 @@ def connect_esp32():
                 timeout=1
             )
 
-            # Give ESP32 time to reset after serial connection
+            # Allow the ESP32 to reset after opening the serial port.
             time.sleep(2)
 
             ser.reset_input_buffer()
@@ -198,7 +206,7 @@ def create_files():
     """Create CSV files and headers if they do not exist."""
 
     # --------------------------------------------------------
-    # INITIAL MODEL HEADERS
+    # RAW SAMPLE FILE HEADERS
     # --------------------------------------------------------
 
     initial_headers = [
@@ -210,7 +218,7 @@ def create_files():
     ]
 
     # --------------------------------------------------------
-    # CORRECTION HEADERS
+    # ADAPTIVE CORRECTION FILE HEADERS
     # --------------------------------------------------------
 
     correction_headers = [
@@ -226,7 +234,7 @@ def create_files():
     ]
 
     # --------------------------------------------------------
-    # CREATE INITIAL MODEL FILES
+    # CREATE RAW SAMPLE FILES
     # --------------------------------------------------------
 
     for model_time in MODEL_TIMES:
@@ -248,7 +256,7 @@ def create_files():
                 )
 
     # --------------------------------------------------------
-    # CREATE CORRECTION FILES
+    # CREATE ADAPTIVE CORRECTION FILES
     # --------------------------------------------------------
 
     for model_time in MODEL_TIMES:
@@ -298,7 +306,7 @@ def main():
     actual_time = None
 
     # --------------------------------------------------------
-    # Initial predictions for each model time
+    # Initial prediction reported for each prediction window.
     # --------------------------------------------------------
 
     initial_predictions = {
@@ -308,7 +316,7 @@ def main():
     }
 
     # --------------------------------------------------------
-    # Most recent corrected prediction for each model time
+    # Latest adaptive prediction reported for each prediction window.
     # --------------------------------------------------------
 
     last_corrected_predictions = {
@@ -375,7 +383,7 @@ def main():
 
 
             # =================================================
-            # IGNORE EVERYTHING UNTIL TEST STARTS
+            # IGNORE SERIAL DATA UNTIL A TEST STARTS
             # =================================================
 
             if experiment_start is None:
@@ -393,11 +401,7 @@ def main():
 
                 try:
 
-                    # Expected format:
-                    #
-                    # SAMPLE,
-                    # experiment_time,
-                    # temperature
+                    # Format: SAMPLE, experiment_time, temperature
 
                     sample_time = float(
                         values[1]
@@ -409,29 +413,13 @@ def main():
 
                     sample_number += 1
 
-                    # ------------------------------------------------
-                    # Determine integer test-time second.
-                    #
-                    # Examples:
-                    #
-                    # 0.48 -> 0
-                    # 1.01 -> 1
-                    # 1.48 -> 1
-                    # 2.01 -> 2
-                    #
-                    # This matches the existing data structure.
-                    # ------------------------------------------------
+                    # Convert elapsed sample time to the integer test second.
 
                     test_time_seconds = int(
                         sample_time
                     )
 
-                    # ------------------------------------------------
-                    # Save raw sample to ALL initial-model files.
-                    #
-                    # The raw data is the same underlying experiment
-                    # data for the 30, 45, and 60 second models.
-                    # ------------------------------------------------
+                    # Store the same raw experiment data for all prediction windows.
 
                     for model_time in MODEL_TIMES:
 
@@ -472,13 +460,7 @@ def main():
 
                 try:
 
-                    # Expected format:
-                    #
-                    # INITIAL_MODEL,
-                    # experiment_time,
-                    # temperature,
-                    # model_time,
-                    # prediction
+                    # Format: INITIAL_MODEL, experiment_time, temperature, model_time, prediction
 
                     experiment_time_from_esp = float(
                         values[1]
@@ -496,11 +478,7 @@ def main():
                         values[4]
                     )
 
-                    # ------------------------------------------------
-                    # Only store the prediction in memory.
-                    #
-                    # DO NOT write it into the raw initial-model CSV.
-                    # ------------------------------------------------
+                    # Keep model predictions in memory; raw samples are stored separately.
 
                     if model_time in MODEL_TIMES:
 
@@ -537,13 +515,7 @@ def main():
 
                 try:
 
-                    # Expected format:
-                    #
-                    # CORRECTION_UPDATE,
-                    # experiment_time,
-                    # temperature,
-                    # model_time,
-                    # corrected_prediction
+                    # Format: CORRECTION_UPDATE, experiment_time, temperature, model_time, corrected_prediction
 
                     experiment_time_from_esp = float(
                         values[1]
@@ -561,9 +533,7 @@ def main():
                         values[4]
                     )
 
-                    # ------------------------------------------------
-                    # Make sure this is one of our active model times.
-                    # ------------------------------------------------
+                    # Ignore correction updates for inactive prediction windows.
 
                     if model_time not in MODEL_TIMES:
 
@@ -575,17 +545,13 @@ def main():
                         ]
                     )
 
-                    # ------------------------------------------------
-                    # Store most recent corrected prediction.
-                    # ------------------------------------------------
+                    # Store the latest adaptive prediction.
 
                     last_corrected_predictions[
                         model_time
                     ] = corrected_prediction
 
-                    # ------------------------------------------------
-                    # Calculate prediction change.
-                    # ------------------------------------------------
+                    # Measure change from the initial prediction.
 
                     change_percent = (
                         prediction_change_percent(
@@ -594,10 +560,7 @@ def main():
                         )
                     )
 
-                    # ------------------------------------------------
-                    # Correction data is only written beginning
-                    # when the adaptive model starts sending updates.
-                    # ------------------------------------------------
+                    # Write correction rows after adaptive updates begin.
 
                     with open(
                         CORRECTION_FILES[model_time],
@@ -657,13 +620,7 @@ def main():
                     continue
 
 
-                # ------------------------------------------------
-                # Use the host computer's current elapsed time
-                # for the experiment-time value of the final row.
-                #
-                # This keeps the final row aligned with the moment
-                # the ESP32 reports the actual completion time.
-                # ------------------------------------------------
+                # Timestamp the final row when the ESP32 reports test completion.
 
                 final_experiment_time = round(
                     time.time()
@@ -690,10 +647,7 @@ def main():
                         ]
                     )
 
-                    # ------------------------------------------------
-                    # If no correction update was received, use the
-                    # initial prediction as the final prediction.
-                    # ------------------------------------------------
+                    # Fall back to the initial prediction if no adaptive update was received.
 
                     if corrected_prediction is None:
 
@@ -722,14 +676,7 @@ def main():
                         )
                     )
 
-                    # ------------------------------------------------
-                    # Get the last temperature recorded by the
-                    # correction system if possible.
-                    #
-                    # The normal correction rows already contain
-                    # temperature. The final row intentionally leaves
-                    # temperature blank, matching your example.
-                    # ------------------------------------------------
+                    # Leave temperature blank in the final summary row.
 
                     with open(
                         CORRECTION_FILES[model_time],
@@ -766,7 +713,7 @@ def main():
 
 
                 # =================================================
-                # RESET FOR NEXT TEST
+                # RESET TEST STATE BEFORE EXIT
                 # =================================================
 
                 experiment_start = None
