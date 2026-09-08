@@ -19,10 +19,10 @@ import time
 PORT = "COM6"
 BAUD = 115200
 
-DATA_FOLDER = (
-    r"C:\Users\alber\OneDrive - University of Tennessee"
-    r"\Documents\TemperatureSensorProject\Data"
-)
+try:
+    from local_config import DATA_FOLDER
+except ImportError:
+    DATA_FOLDER = "Saved Data"
 
 # Initial prediction windows evaluated by the ESP32.
 MODEL_TIMES = [30, 45, 60]
