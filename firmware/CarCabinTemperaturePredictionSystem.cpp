@@ -1,7 +1,7 @@
 // ==========================================================
-// Temperature Prediction System V6.0
-// Newton Cooling Model Validation Version
-// Part 1/3
+// Car Cabin Temperature Prediction System - V6.0
+// Newton's Law of Cooling prediction with adaptive correction
+// Hardware, configuration, sampling, and test setup
 // ==========================================================
 
 
@@ -30,7 +30,7 @@
 
 
 // ==========================================================
-// SENSOR SETUP
+// TEMPERATURE SENSOR
 // ==========================================================
 
 #define ONE_WIRE_BUS 13
@@ -43,7 +43,7 @@ DallasTemperature sensors(&oneWire);
 
 
 // ==========================================================
-// WIFI / SOFT AP SETUP
+// WI-FI SOFT ACCESS POINT
 // ==========================================================
 
 const char* apSSID = "CarTemp";
@@ -53,30 +53,30 @@ AsyncWebServer server(80);
 
 
 // ==========================================================
-// EXPERIMENT SETTINGS
+// TIMING AND MODEL SETTINGS
 // ==========================================================
 
 
-// How often temperature sensor updates
+// Temperature sensor update interval.
 const unsigned long TEMPERATURE_DELAY = 1000;
 
 
-// Initial sampling rate
+// Raw temperature sampling interval.
 const unsigned long SAMPLE_DELAY = 500;
 
 
-// Correction update interval
+// Adaptive correction interval.
 const unsigned long CORRECTION_INTERVAL = 10000;
 
 const unsigned long INITIAL_K_INTERVAL = 5000;
 
 
-// Number of prediction models
+// Number of prediction windows.
 
 #define MODEL_COUNT 3
 
 
-// Sampling windows
+// Initial prediction windows, in seconds.
 
 int modelTimes[MODEL_COUNT] =
 {
@@ -87,7 +87,7 @@ int modelTimes[MODEL_COUNT] =
 
 
 
-// Maximum stored samples
+// Maximum number of raw samples stored in memory.
 
 #define MAX_SAMPLES 125
 
@@ -121,7 +121,7 @@ String tempStatus = "Loading...";
 
 
 // ==========================================================
-// MODEL STORAGE
+// PREDICTION MODEL STATE
 // ==========================================================
 
 
@@ -136,7 +136,7 @@ float initialK[MODEL_COUNT];
 
 
 // ==========================================================
-// TEST VARIABLES
+// TEST STATE
 // ==========================================================
 
 
@@ -160,7 +160,7 @@ bool testActive = false;
 
 
 // ==========================================================
-// INITIAL K INTERVAL TRACKING
+// INITIAL K INTERVAL STATE
 // ==========================================================
 
 float currentInitialK = -1;
@@ -191,7 +191,7 @@ float testStartTemperature = 0;
 
 
 // ==========================================================
-// WEB PAGE VARIABLES
+// WEB INTERFACE STATE
 // ==========================================================
 
 
@@ -200,7 +200,7 @@ String predictedTimeText = "Calculating...";
 
 
 // ==========================================================
-// SENSOR FAILURE CHECK
+// SENSOR VALIDATION
 // ==========================================================
 
 
@@ -214,7 +214,7 @@ bool isSensorFailure(float temp)
 
 
 // ==========================================================
-// STATUS UPDATE
+// POLL STATUS
 // ==========================================================
 
 
@@ -251,7 +251,7 @@ void updateTemperatureStatus(float temp)
 
 
 // ==========================================================
-// READ TEMPERATURE
+// TEMPERATURE READING
 // ==========================================================
 
 
@@ -290,7 +290,7 @@ String readTemperatureF()
 
 
 // ==========================================================
-// SERIAL SAMPLE OUTPUT
+// SERIAL SAMPLE MESSAGE
 // ==========================================================
 
 
@@ -310,7 +310,7 @@ void printSample(unsigned long elapsed, float temp)
 
 
 // ==========================================================
-// START TEST
+// START PREDICTION TEST
 // ==========================================================
 
 
@@ -386,7 +386,7 @@ void startPredictionTest()
 
 
 // ==========================================================
-// CAPTURE INITIAL SAMPLES
+// CAPTURE RAW SAMPLE
 // ==========================================================
 
 
@@ -438,16 +438,16 @@ void captureSample()
 }
 
 // ==========================================================
-// Temperature Prediction System V4.2
-// Newton Cooling Model Validation Version
-// Part 2/3
-// Model Calculations + Adaptive Correction
+// Car Cabin Temperature Prediction System - V6.0
+// Newton's Law of Cooling prediction with adaptive correction
+// Prediction model and adaptive-correction logic
+// Prediction model and adaptive correction
 // ==========================================================
 
 
 
 // ==========================================================
-// FIND NUMBER OF SAMPLES AT A GIVEN TIME
+// COUNT SAMPLES THROUGH A GIVEN TIME
 // ==========================================================
 
 
@@ -481,7 +481,7 @@ int getSamplesAtTime(int seconds)
 
 
 // ==========================================================
-// INITIAL PREDICTION USING CURRENT ACCEPTED K
+// INITIAL PREDICTION FROM ACCEPTED K
 // ==========================================================
 
 float calculateInitialPrediction(
@@ -502,7 +502,7 @@ float calculateInitialPrediction(
   }
 
   // --------------------------------------------------------
-  // Target is defined as ambient + 1°F.
+  // Predict until the cabin is within 1°F of the ambient estimate.
   //
   // Example:
   // ambientEstimate = 75
@@ -544,7 +544,7 @@ float calculateInitialPrediction(
 
 
 // ==========================================================
-// CALCULATE K FOR ONE 5-SECOND INTERVAL
+// CALCULATE K FOR A 5-SECOND INTERVAL
 //
 // Example:
 // 20 -> 25
@@ -628,7 +628,7 @@ float calculateIntervalK(int startIndex, int endIndex)
 
 
 // ==========================================================
-// UPDATE INITIAL K USING 5-SECOND INTERVALS
+// UPDATE INITIAL K FROM 5-SECOND INTERVALS
 //
 // 20 -> 25
 // 25 -> 30
@@ -644,7 +644,7 @@ void updateInitialK()
   }
 
   // --------------------------------------------------------
-  // Find the first sample at or after 20 seconds
+  // Begin initial-k estimation at the first sample at or after 20 seconds.
   // --------------------------------------------------------
 
   if(initialKIntervalStartIndex < 0)
@@ -671,7 +671,7 @@ void updateInitialK()
   }
 
   // --------------------------------------------------------
-  // Determine when the current 5-second interval ends
+  // Determine the end of the current 5-second interval.
   // --------------------------------------------------------
 
   float intervalStartElapsed =
@@ -684,8 +684,7 @@ void updateInitialK()
 
 
   // --------------------------------------------------------
-  // Check whether we have reached the end
-  // of this 5-second interval
+  // Wait until enough data exists to close the current interval.
   // --------------------------------------------------------
 
   int intervalEndIndex = -1;
@@ -712,7 +711,7 @@ void updateInitialK()
 
 
   // --------------------------------------------------------
-  // Calculate RAW K for this interval
+  // Calculate the raw k value for this interval.
   // --------------------------------------------------------
 
   float rawK =
@@ -726,8 +725,7 @@ void updateInitialK()
   {
     Serial.println("INITIAL_K_INTERVAL_INVALID");
 
-    // Move forward anyway so one bad interval
-    // does not permanently stop the system.
+    // Skip an invalid interval so it does not stop later updates.
 
     initialKIntervalStartIndex =
         intervalEndIndex;
@@ -737,11 +735,10 @@ void updateInitialK()
 
 
   // --------------------------------------------------------
-  // FIRST INTERVAL
+  // FIRST VALID INTERVAL
   //
-  // 20 -> 25 becomes the reference K.
-  // No cap is applied because there is nothing
-  // to compare it against yet.
+  // The first valid interval establishes the reference k.
+  // No limiter is applied until a previous accepted k exists.
   // --------------------------------------------------------
 
   if(currentInitialK < 0)
@@ -762,8 +759,8 @@ void updateInitialK()
 
 
   // --------------------------------------------------------
-  // ALL FOLLOWING INTERVALS
-  // Compare RAW K to PREVIOUS ACCEPTED K
+  // FOLLOWING INTERVALS
+  // Limit raw k relative to the previously accepted k.
   // --------------------------------------------------------
 
   else
@@ -821,7 +818,7 @@ void updateInitialK()
 
 
   // --------------------------------------------------------
-  // Move to the NEXT interval
+  // Advance to the next non-overlapping interval.
   //
   // 20->25 becomes 25->30
   // 25->30 becomes 30->35
@@ -834,11 +831,11 @@ void updateInitialK()
 
 
 // ==========================================================
-// NEWTON COOLING PREDICTION
+// ADAPTIVE NEWTON PREDICTION
 //
 // Ta - T = (Ta - T0)e^-kt
 //
-// Returns remaining seconds
+// Returns the predicted remaining time in seconds.
 // ==========================================================
 
 float calculateNewtonPrediction(int samplesUsed, int modelIndex)
@@ -955,7 +952,7 @@ float calculateNewtonPrediction(int samplesUsed, int modelIndex)
 
 
   // ================================
-  // Adaptive smoothing of k
+  // Limit and smooth changes in the adaptive k value.
   // ================================
 
 
@@ -1048,7 +1045,7 @@ float calculateNewtonPrediction(int samplesUsed, int modelIndex)
 
 
 // ==========================================================
-// APPLY ADAPTIVE CORRECTIONS
+// UPDATE ADAPTIVE PREDICTIONS
 // ==========================================================
 
 
@@ -1172,7 +1169,7 @@ if(!anyModelReady)
 
 
     // ================================
-    // 25% Prediction Jump Limit
+    // Limit each adaptive prediction update to a 25% change.
     // ================================
 
 
@@ -1244,7 +1241,7 @@ if(!anyModelReady)
 
 
 // ==========================================================
-// CHECK ACTUAL COMPLETION
+// CHECK TEST COMPLETION
 // ==========================================================
 
 
@@ -1295,16 +1292,16 @@ void checkActualCompletion()
 }
 
 // ==========================================================
-// Temperature Prediction System V4.2
-// Newton Cooling Model Validation Version
-// Part 3/3
-// Setup + Loop + Web Interface
+// Car Cabin Temperature Prediction System - V6.0
+// Newton's Law of Cooling prediction with adaptive correction
+// Web interface, setup, and main loop
+// Web interface, setup, and main loop
 // ==========================================================
 
 
 
 // ==========================================================
-// HTML PAGE
+// EMBEDDED WEB PAGE
 // ==========================================================
 
 
@@ -1575,7 +1572,7 @@ function updateDisplay()
 
 
   // ========================================
-  // ESTIMATED CLOCK TIME
+  // ESTIMATED ARRIVAL TIME
   // ========================================
 
   let arrivalTime =
@@ -1608,7 +1605,7 @@ function updateDisplay()
 
 
 // ==========================================
-// UPDATE UI CLOCK
+// REFRESH COUNTDOWN DISPLAY
 // ==========================================
 
 setInterval(function()
@@ -1620,7 +1617,7 @@ setInterval(function()
 
 
 // ==========================================
-// TEMPERATURE UPDATE
+// POLL TEMPERATURE
 // ==========================================
 
 setInterval(function()
@@ -1632,7 +1629,7 @@ setInterval(function()
 
 
 // ==========================================
-// STATUS UPDATE
+// POLL STATUS
 // ==========================================
 
 setInterval(function()
@@ -1644,7 +1641,7 @@ setInterval(function()
 
 
 // ==========================================
-// PREDICTION UPDATE
+// POLL PREDICTION
 // ==========================================
 
 setInterval(function()
@@ -1655,7 +1652,7 @@ setInterval(function()
 }, 10000);
 
 
-// Initial requests
+// Populate the interface immediately on page load.
 
 updateTemperature();
 
@@ -1748,7 +1745,7 @@ Serial.println("==============================");
 
 
 
-// Sensor
+// Initialize the temperature sensor.
 
 sensors.begin();
 
@@ -1764,7 +1761,7 @@ readTemperatureF();
 
 
 // ==========================================================
-// START ESP32 SOFT AP
+// START ESP32 SOFT ACCESS POINT
 // ==========================================================
 
 WiFi.mode(WIFI_AP);
@@ -1791,7 +1788,7 @@ else
 
 
 // ========================================================
-// WEB SERVER
+// WEB SERVER ROUTES
 // ========================================================
 
   server.on(
@@ -1884,7 +1881,7 @@ else
 
 
 // ========================================================
-// START PREDICTION TEST
+// BEGIN PREDICTION TEST
 // ========================================================
 
 
@@ -1940,7 +1937,7 @@ now-lastInitialKUpdate >= INITIAL_K_INTERVAL
 
 
 // ==========================================================
-// SENSOR UPDATE
+// UPDATE TEMPERATURE SENSOR
 // ==========================================================
 
 
@@ -1977,7 +1974,7 @@ now;
 
 
 // ==========================================================
-// SAMPLE COLLECTION
+// COLLECT RAW SAMPLES
 // ==========================================================
 
 
@@ -1998,7 +1995,7 @@ lastSampleRead =
 now;
 
 
-// Create each Newton model at its own sampling time
+// Create each initial model when its prediction window is reached.
 
 for(int i = 0; i < MODEL_COUNT; i++)
 {
@@ -2095,7 +2092,7 @@ for(int i = 0; i < MODEL_COUNT; i++)
 
 
 // ==========================================================
-// CORRECTIONS
+// ADAPTIVE CORRECTIONS
 // ==========================================================
 
 
@@ -2130,7 +2127,7 @@ now;
 
 
 
-// Display best prediction (60 sec model)
+// Use the 60-second model for the web-interface estimate.
 
 if(correctedPredictions[2] > 0)
 
@@ -2153,7 +2150,7 @@ correctedPredictions[2]
 
 
 // ==========================================================
-// COMPLETION
+// TEST COMPLETION
 // ==========================================================
 
 
