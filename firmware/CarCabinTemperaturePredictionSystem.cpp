@@ -5,7 +5,7 @@
 // ==========================================================
 
 
-#ifdef ESP33
+#ifdef ESP32
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -1308,148 +1308,356 @@ void checkActualCompletion()
 const char index_html[] PROGMEM = R"rawliteral(
 
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CarTemp</title>
 
 <style>
+:root {
+  --bg-top: #eef3f9;
+  --bg-bottom: #f8fafc;
+  --card: rgba(255,255,255,0.94);
+  --text: #172033;
+  --muted: #6f7b8d;
+  --border: rgba(23,32,51,0.08);
+  --shadow: 0 18px 45px rgba(35, 52, 78, 0.10);
+  --accent: #2f6fed;
+  --accent-soft: #eaf1ff;
+  --good: #16855b;
+  --good-soft: #e8f7f0;
+  --warn: #b55c14;
+  --warn-soft: #fff1e5;
+  --danger: #b33a3a;
+  --danger-soft: #fdecec;
+}
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+  background: var(--bg-bottom);
+}
+
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f5f7fa;
-  color: #222;
-  text-align: center;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(47,111,237,0.10), transparent 34%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 72%);
 }
 
-.container {
-  max-width: 500px;
-  margin: auto;
-  padding: 30px 20px;
+.shell {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  padding:
+    max(34px, env(safe-area-inset-top))
+    18px
+    max(34px, env(safe-area-inset-bottom));
 }
 
-.title {
-  font-size: 2.2rem;
-  font-weight: bold;
-  margin-bottom: 35px;
+.header {
+  margin: 12px 4px 26px;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  box-shadow: 0 10px 24px rgba(47,111,237,0.24);
+}
+
+.brand-mark::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border: 3px solid white;
+  border-top-color: transparent;
+  border-radius: 50%;
+  transform: rotate(-35deg);
+}
+
+.brand {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+}
+
+.subtitle {
+  margin: 8px 0 0 54px;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .card {
-  background: white;
-  border-radius: 20px;
-  padding: 25px 20px;
-  margin-bottom: 18px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-.label {
-  font-size: 1rem;
-  color: #777;
+.temperature-card {
+  padding: 26px;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 10px;
+}
+
+.temperature-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+  margin-top: 10px;
 }
 
 .temperature {
-  font-size: 3.5rem;
-  font-weight: bold;
+  font-size: clamp(4rem, 19vw, 5.4rem);
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.065em;
+  white-space: nowrap;
 }
 
-.estimate {
-  font-size: 2.5rem;
-  font-weight: bold;
+.unit {
+  font-size: 0.45em;
+  margin-left: 4px;
+  vertical-align: 0.45em;
+  letter-spacing: -0.02em;
 }
 
-.arrival {
-  margin-top: 10px;
-  font-size: 1.2rem;
-  color: #666;
+.target-chip {
+  flex: 0 0 auto;
+  margin-bottom: 4px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.status {
-  font-size: 1.2rem;
-  font-weight: bold;
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
+.info-card {
+  min-height: 154px;
+  padding: 21px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.info-value {
+  margin-top: 15px;
+  font-size: 1.7rem;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.info-note {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.status-card {
+  padding: 22px;
+}
+
+.status-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.status-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 750;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-pill.ideal {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.status-pill.not-ideal {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.status-pill.failure {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.status-text {
+  margin-top: 17px;
+  font-size: 1.42rem;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.footer {
+  margin: 19px 4px 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 390px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .info-card {
+    min-height: 132px;
+  }
+
+  .temperature-row {
+    align-items: center;
+  }
+
+  .target-chip {
+    font-size: 0.76rem;
+    padding: 8px 10px;
+  }
+}
 </style>
-
 </head>
 
-
 <body>
+<div class="shell">
 
-<div class="container">
+  <header class="header">
+    <div class="brand-row">
+      <div class="brand-mark"></div>
+      <div class="brand">CarTemp</div>
+    </div>
+    <div class="subtitle">Live cabin temperature prediction</div>
+  </header>
 
-  <div class="title">
-    CarTemp
+  <section class="card temperature-card">
+    <div class="eyebrow">Current temperature</div>
+
+    <div class="temperature-row">
+      <div class="temperature">
+        <span id="temperature">--</span><span class="unit">&deg;F</span>
+      </div>
+
+      <div class="target-chip">
+        Target <span id="targetChip">--</span>&deg;F
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card info-card">
+      <div>
+        <div class="eyebrow">Estimated time</div>
+        <div class="info-value" id="estimate">Calculating...</div>
+      </div>
+
+      <div class="info-note" id="estimateNote">
+        Available after the 60-second model is ready.
+      </div>
+    </section>
+
+    <section class="card info-card">
+      <div>
+        <div class="eyebrow">Ideal target</div>
+        <div class="info-value">
+          <span id="targetTemperature">--</span>&deg;F
+        </div>
+      </div>
+
+      <div class="info-note">
+        Reference temperature used by the prediction model.
+      </div>
+    </section>
   </div>
 
+  <section class="card status-card">
+    <div class="status-top">
+      <div class="status-label">Cabin status</div>
 
-  <div class="card">
-
-    <div class="label">
-      Current Temperature
+      <div class="status-pill not-ideal" id="statusPill">
+        <span class="status-dot"></span>
+        <span id="statusShort">Checking</span>
+      </div>
     </div>
 
-    <div class="temperature">
-      <span id="temperature">--</span>°F
-    </div>
-
-  </div>
-
-
-  <div class="card">
-
-    <div class="label">
-      Estimated Time
-    </div>
-
-    <div class="estimate">
-      <span id="estimate">Calculating...</span>
-    </div>
-
-    <div class="arrival">
-      Estimated ideal temperature:
-      <span id="arrival">--:--</span>
-    </div>
-
-  </div>
-
-
-  <div class="card">
-
-    <div class="status" id="status">
+    <div class="status-text" id="status">
       Loading...
     </div>
+  </section>
 
+  <div class="footer">
+    ESP32 local interface
   </div>
 
 </div>
 
-
 <script>
-
 let remainingSeconds = -1;
-
 let lastUpdateTime = Date.now();
-
-
-// ==========================================
-// FORMAT TIME
-// ==========================================
 
 function formatTime(seconds)
 {
-
   if(seconds < 0)
   {
     return "Calculating...";
@@ -1458,107 +1666,117 @@ function formatTime(seconds)
   seconds = Math.max(0, Math.round(seconds));
 
   let minutes = Math.floor(seconds / 60);
-
   let remaining = seconds % 60;
+
+  if(minutes <= 0)
+  {
+    return remaining + " sec";
+  }
 
   return minutes + " min " +
          String(remaining).padStart(2, "0") +
          " sec";
-
 }
-
-
-// ==========================================
-// UPDATE TEMPERATURE
-// ==========================================
 
 function updateTemperature()
 {
-
   fetch("/temperaturef")
-
   .then(response => response.text())
-
   .then(data =>
   {
-
-    document.getElementById("temperature").innerHTML = data;
-
+    document.getElementById("temperature").textContent = data;
   });
-
 }
 
+function updateTarget()
+{
+  fetch("/target")
+  .then(response => response.text())
+  .then(data =>
+  {
+    let value = parseFloat(data);
 
-// ==========================================
-// UPDATE STATUS
-// ==========================================
+    if(!Number.isNaN(value))
+    {
+      let formatted =
+        Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+
+      document.getElementById("targetChip").textContent = formatted;
+      document.getElementById("targetTemperature").textContent = formatted;
+    }
+  });
+}
 
 function updateStatus()
 {
-
   fetch("/status")
-
   .then(response => response.text())
-
   .then(data =>
   {
+    const status = data.trim();
 
-    document.getElementById("status").innerHTML = data;
+    document.getElementById("status").textContent = status;
 
+    const pill = document.getElementById("statusPill");
+    const shortText = document.getElementById("statusShort");
+
+    pill.className = "status-pill";
+
+    if(status === "Ideal Temperature")
+    {
+      pill.classList.add("ideal");
+      shortText.textContent = "Ideal";
+    }
+    else if(status === "Sensor Failure")
+    {
+      pill.classList.add("failure");
+      shortText.textContent = "Sensor error";
+    }
+    else
+    {
+      pill.classList.add("not-ideal");
+      shortText.textContent = "Not ideal";
+    }
   });
-
 }
-
-
-// ==========================================
-// GET NEW PREDICTION
-// ==========================================
 
 function updatePrediction()
 {
-
   fetch("/estimate")
-
   .then(response => response.text())
-
   .then(data =>
   {
+    const value = parseFloat(data);
 
-    remainingSeconds = parseFloat(data);
+    if(Number.isNaN(value) || value < 0)
+    {
+      remainingSeconds = -1;
+    }
+    else
+    {
+      remainingSeconds = value;
+    }
 
     lastUpdateTime = Date.now();
-
     updateDisplay();
-
   });
-
 }
-
-
-// ==========================================
-// UPDATE DISPLAY
-// ==========================================
 
 function updateDisplay()
 {
+  const estimate = document.getElementById("estimate");
+  const note = document.getElementById("estimateNote");
 
   if(remainingSeconds < 0)
   {
-
-    document.getElementById("estimate").innerHTML =
-      "Calculating...";
-
-    document.getElementById("arrival").innerHTML =
-      "--:--";
-
+    estimate.textContent = "Calculating...";
+    note.textContent =
+      "Available after the 60-second model is ready.";
     return;
-
   }
-
 
   let elapsedSinceUpdate =
     (Date.now() - lastUpdateTime) / 1000;
-
 
   let displayedSeconds =
     Math.max(
@@ -1566,104 +1784,27 @@ function updateDisplay()
       remainingSeconds - elapsedSinceUpdate
     );
 
-
-  document.getElementById("estimate").innerHTML =
-    formatTime(displayedSeconds);
-
-
-  // ========================================
-  // ESTIMATED ARRIVAL TIME
-  // ========================================
-
-  let arrivalTime =
-    new Date(
-      Date.now() + displayedSeconds * 1000
-    );
-
-
-  let hours = arrivalTime.getHours();
-
-  let minutes = arrivalTime.getMinutes();
-
-  let suffix = hours >= 12 ? "PM" : "AM";
-
-  hours = hours % 12;
-
-  if(hours === 0)
-  {
-    hours = 12;
-  }
-
-  minutes =
-    String(minutes).padStart(2, "0");
-
-
-  document.getElementById("arrival").innerHTML =
-    hours + ":" + minutes + " " + suffix;
-
+  estimate.textContent = formatTime(displayedSeconds);
+  note.textContent = "60-second model with adaptive correction.";
 }
 
-
-// ==========================================
-// REFRESH COUNTDOWN DISPLAY
-// ==========================================
+setInterval(updateDisplay, 1000);
 
 setInterval(function()
 {
-
-  updateDisplay();
-
-}, 1000);
-
-
-// ==========================================
-// POLL TEMPERATURE
-// ==========================================
-
-setInterval(function()
-{
-
   updateTemperature();
-
-}, 10000);
-
-
-// ==========================================
-// POLL STATUS
-// ==========================================
-
-setInterval(function()
-{
-
   updateStatus();
+}, 2000);
 
-}, 10000);
-
-
-// ==========================================
-// POLL PREDICTION
-// ==========================================
-
-setInterval(function()
-{
-
-  updatePrediction();
-
-}, 10000);
-
-
-// Populate the interface immediately on page load.
+setInterval(updatePrediction, 2000);
 
 updateTemperature();
-
+updateTarget();
 updateStatus();
-
 updatePrediction();
 
 </script>
-
 </body>
-
 </html>
 
 )rawliteral";
@@ -1828,6 +1969,20 @@ else
         200,
         "text/plain",
         tempStatus
+      );
+    }
+  );
+
+
+  server.on(
+    "/target",
+    HTTP_GET,
+    [](AsyncWebServerRequest *request)
+    {
+      request->send(
+        200,
+        "text/plain",
+        String(ambientEstimate, 1)
       );
     }
   );
