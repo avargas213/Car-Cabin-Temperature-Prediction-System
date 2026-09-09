@@ -210,7 +210,7 @@ A future V6.0 concept was documented after V5.2. The proposed design would calcu
 
 The goal would be to determine whether local parameter limiting can make the initial prediction more stable without preventing legitimate changes in cabin thermal behavior.
 
-This V6.0 concept was **not implemented or experimentally evaluated** and is not part of the current validated system architecture.
+This local-`k` concept was not part of the completed V5.2 validation campaign. Any draft implementation in the development firmware should be treated as experimental future work rather than as a validated system improvement.
 
 ---
 
@@ -335,13 +335,15 @@ The browser interface displays:
 
 - current temperature,
 - estimated time remaining,
-- estimated clock time at target temperature,
-- temperature status.
+- target/reference temperature,
+- estimated time remaining once the 60-second model is available,
+- ideal / not-ideal temperature status.
 
 The main endpoints are:
 
 ```text
 /temperaturef
+/target
 /status
 /estimate
 ```
@@ -403,4 +405,4 @@ Potential sources of prediction error include:
 - early transient behavior,
 - limited test sample size.
 
-V5.2 is the latest completed and vehicle-tested system. The proposed V6.0 local-`k` limiter remains future work and has not been implemented or validated.
+V5.2 is the latest completed and vehicle-tested system. The proposed local-`k` limiter remains experimental future work and has not been validated with a repeated vehicle-test dataset.

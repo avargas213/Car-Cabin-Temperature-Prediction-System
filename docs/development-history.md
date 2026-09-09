@@ -163,7 +163,7 @@ Displayed / stored corrected prediction
 
 ## V4.2 — Adaptive Model Evaluation
 
-V4.2 continued the stability investigation and became the adaptive foundation used by the later V5.x and V6.0 designs.
+V4.2 continued the stability investigation and became the adaptive foundation used by the later V5.x work and the subsequently proposed local-`k` experiment.
 
 The most important conclusion from this phase was not that the adaptive model needed to be replaced. Instead, testing showed:
 
@@ -265,7 +265,7 @@ The intent was to allow the estimated thermal behavior to change gradually while
 
 ### Important Status
 
-This V6.0 approach was **designed but not implemented or experimentally evaluated**. It should therefore be treated as a documented future-development concept rather than a completed version.
+This local-`k` approach was documented as future work and was not part of the completed V5.2 vehicle-testing campaign. A draft implementation may exist in the development firmware, but it has not been experimentally validated and no performance claims in this repository depend on it.
 
 ---
 
@@ -277,7 +277,7 @@ Therefore:
 
 - V5.2 is used for the latest quantitative vehicle-testing analysis.
 - The adaptive correction behavior is supported by completed testing.
-- The proposed V6.0 local-`k` limiter is documented only as future work.
-- No performance claims are made for V6.0.
+- The proposed local-`k` limiter is treated as future / experimental work rather than a validated project version.
+- No performance claims are made for that experimental work.
 
-The next practical project steps are to polish the web interface, document the installed vehicle prototype with a clear photo, clean up the firmware around the finalized tested baseline, and optionally implement/test the V6.0 concept later.
+The remaining portfolio work is primarily visual: replace the UI concept image with a live screenshot and add a clear photo of the installed vehicle prototype. Further local-`k` experimentation can be performed later if the project is continued.

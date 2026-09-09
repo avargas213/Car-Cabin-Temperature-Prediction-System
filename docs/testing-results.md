@@ -22,6 +22,21 @@ Using the same heating/cooling curve for multiple prediction windows makes the c
 
 ---
 
+## Testing Coverage
+
+The project accumulated multiple layers of testing rather than relying on a single demonstration run.
+
+| Testing Stage | Physical Experiments | Prediction Windows per Experiment | Model-Window Result Sets |
+|---|---:|---:|---:|
+| Early adaptive controlled baseline | 10 | 1 primary adaptive Newton evaluation | 10 |
+| V4.2 vehicle testing | 5 | 15 / 30 / 45 / 60 s | 20 |
+| V5.1 vehicle testing | 5 | 15 / 30 / 45 / 60 s | 20 |
+| V5.2 vehicle testing | 5 | 30 / 45 / 60 s | 15 |
+
+The three vehicle-testing stages therefore represent **15 physical vehicle experiments and 55 model-window result sets**. Because each prediction window within a vehicle test used the same underlying temperature curve, comparisons between windows inside a version are stronger than comparisons between version groups collected on different days.
+
+---
+
 ## Controlled Test Procedure
 
 Early controlled testing used a fixed sensor and heating-source geometry.
@@ -300,7 +315,7 @@ After V5.2, a possible V6.0 local-`k` limiter was designed as a future experimen
 - continue using the 30 / 45 / 60 second prediction windows,
 - retain the adaptive correction stage after the initial prediction.
 
-This design was **not implemented or experimentally tested**, so there is no V6.0 result dataset and this repository makes no quantitative V6.0 performance claims.
+This design was not part of the completed V5.2 vehicle-testing campaign. There is no repeated V6.0 result dataset, so this repository makes no quantitative performance claims for the local-`k` concept.
 
 If this version is implemented later, the appropriate experiment would record:
 
@@ -341,4 +356,4 @@ Later testing generated multiple prediction-window outputs from the same tempera
 
 ### 7. V6.0 remains future work
 
-The consecutive local-`k` limiter was designed as a possible next experiment but was not implemented. V5.2 therefore remains the latest completed and vehicle-tested version documented by the project.
+The consecutive local-`k` limiter remains an experimental future-work direction without a repeated vehicle-test dataset. V5.2 therefore remains the latest completed and vehicle-tested version used for quantitative conclusions.

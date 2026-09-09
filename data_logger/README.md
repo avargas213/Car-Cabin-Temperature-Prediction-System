@@ -264,9 +264,19 @@ If no adaptive correction was received for a model, the initial prediction is us
 
 ## Local Configuration
 
-The logger can use a local configuration file for machine-specific settings such as the data output directory.
+The logger optionally reads a machine-specific output path from:
 
-A local configuration file can be excluded from Git using `.gitignore`, allowing the public repository to remain portable while preserving convenient local settings.
+```text
+local_config_logger.py
+```
+
+Example:
+
+```python
+DATA_FOLDER = r"C:\path\to\your\test\data"
+```
+
+`local_config_logger.py` is excluded from Git. If the file is not present, the logger defaults to the repository-level `Saved Data/` folder.
 
 ---
 

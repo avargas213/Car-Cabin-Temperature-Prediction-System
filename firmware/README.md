@@ -2,34 +2,51 @@
 
 ## Overview
 
-The ESP32 firmware controls the embedded side of the Car Cabin Temperature Prediction System.
+`CarCabinTemperaturePredictionSystem.cpp` contains the ESP32-side firmware for the project.
 
-It is responsible for:
+The firmware handles:
 
-- reading cabin temperature from a DS18B20 temperature sensor,
-- recording temperature samples during a prediction test,
-- estimating the Newton cooling/heating constant `k`,
-- generating initial predictions at 30, 45, and 60 seconds,
-- applying adaptive prediction corrections,
-- sending structured serial data to the Python data logger,
-- hosting a local Wi-Fi access point,
-- serving a web interface showing temperature, status, and estimated time remaining.
+- DS18B20 temperature acquisition,
+- temperature sample storage,
+- Newton-model prediction calculations,
+- adaptive prediction correction,
+- structured serial output for the Python logger,
+- ESP32 Wi-Fi access-point setup,
+- the local mobile web interface.
 
-The latest completed and vehicle-tested algorithm version is **V5.2**. A V6.0 local-`k` limiter was designed as future work but was not implemented or experimentally evaluated.
+## Validation Status
+
+The latest algorithm version with a complete repeated **vehicle-test dataset is V5.2**.
+
+The current source file is a **development branch**. It also contains an experimental draft of the later consecutive local-`k` stability idea along with the redesigned web interface. That local-`k` draft has **not** been validated with a repeated vehicle-test series, so the quantitative results reported in this repository are based on V5.2 and earlier completed testing.
+
+This distinction is intentional:
+
+```text
+Reported performance -> V5.2 vehicle testing
+Current source branch -> ongoing development / UI polish
+Experimental local-k logic -> future validation required
+```
 
 ---
 
 ## Hardware Interface
 
-The system uses a DS18B20 digital temperature sensor connected to the ESP32 through the OneWire protocol.
+The project uses a DS18B20 digital temperature sensor connected to the ESP32 through the OneWire protocol.
 
-The firmware periodically reads the sensor while also storing higher-frequency samples for prediction and experiment logging.
+The current source uses:
+
+```cpp
+#define ONE_WIRE_BUS 13
+```
+
+The ESP32 reads the sensor, stores temperature samples, performs prediction calculations, and serves the local interface.
 
 ---
 
 ## Prediction Windows
 
-V5.2 uses three initial prediction windows:
+The project evaluates three initial prediction times in the final tested V5.2 configuration:
 
 ```text
 30 seconds
@@ -37,13 +54,13 @@ V5.2 uses three initial prediction windows:
 60 seconds
 ```
 
-Earlier versions also tested a 15-second model. That model was removed after vehicle testing showed that the first approximately 15–20 seconds frequently contained unstable startup behavior.
+Earlier versions also evaluated a 15-second model. Vehicle testing showed that the first approximately 15–20 seconds frequently contained unstable startup behavior, which motivated removing that prediction window.
 
 ---
 
 ## Prediction Model
 
-The system uses Newton's Law of Cooling/Heating:
+The core model is based on Newton's Law of Cooling/Heating:
 
 ```text
 T(t) - Ta = (T0 - Ta)e^(-kt)
@@ -51,20 +68,20 @@ T(t) - Ta = (T0 - Ta)e^(-kt)
 
 where:
 
-- `T(t)` is the measured temperature at time `t`,
+- `T(t)` is measured temperature,
 - `Ta` is the ambient/reference temperature,
 - `T0` is the starting temperature,
-- `k` is the estimated thermal response constant.
+- `k` is the estimated thermal-response constant.
 
-The exponential relationship is transformed into a regression problem so that `k` can be estimated from measured temperature data. The calculated `k` is then used to estimate the remaining time required to approach the target/reference temperature.
+The exponential relationship is transformed into a regression problem so that `k` can be estimated from measured temperature data.
 
 ---
 
-## V5.2 Startup Filter
+## V5.2 Tested Development Direction
 
-Vehicle testing during V4.2 and V5.1 showed that the first approximately 15–20 seconds of the temperature response were often less representative of the long-term cabin behavior.
+V5.2 improved the initial-prediction stage by excluding the first 20 seconds from the initial `k` estimation.
 
-Potential causes included:
+The change was motivated by repeated vehicle testing that showed early measurements could be affected by:
 
 - sensor response delay,
 - HVAC startup behavior,
@@ -72,43 +89,27 @@ Potential causes included:
 - delayed heat transfer,
 - transient cabin conditions.
 
-V5.2 therefore excludes the first 20 seconds from the initial `k` calculation.
-
----
-
-## V5.2 Initial `k` Estimation
-
-V5.2 builds on the weighted initial-`k` approach developed during V5.0/V5.1. Post-startup portions of the temperature curve are used to estimate the initial thermal response, with later data receiving greater influence than the earliest usable measurements.
-
-The purpose is to reduce sensitivity to startup transients while still producing an initial prediction quickly enough to be useful.
-
----
-
-## Initial Predictions
-
-Initial predictions are generated at approximately 30, 45, and 60 seconds.
-
-Each model estimates the remaining time required to approach the target/reference temperature and converts that value into a predicted total experiment completion time.
+V5.2 retained 30-, 45-, and 60-second prediction windows and preserved the adaptive correction system developed during V2-V4.x.
 
 ---
 
 ## Adaptive Correction
 
-The initial prediction is not treated as final. As additional temperature data becomes available, the firmware recalculates the Newton model and updates the prediction.
+After an initial prediction is generated, the system continues recalculating the Newton model as additional temperature data becomes available.
 
-The adaptive stage includes stabilization methods developed during the V2-V4.x iterations, including:
+The adaptive stage uses stabilization mechanisms developed during earlier testing:
 
-- adaptive `k` smoothing,
-- adaptive `k` change limiting,
-- prediction-change limiting.
+- approximately ±10% adaptive `k` limiting,
+- 70/30 adaptive `k` smoothing,
+- a 25% maximum prediction change per correction.
 
-These mechanisms reduce the effect of individual noisy calculations while preserving the model's ability to adapt.
+These mechanisms reduce sudden changes while preserving the model's ability to adapt.
 
 ---
 
 ## Serial Communication
 
-The ESP32 sends structured serial messages to the Python logger. The logger records raw samples, initial predictions, adaptive updates, and the final observed completion time.
+The firmware sends structured messages that are parsed by `data_logger/logger.py`.
 
 Typical message categories include:
 
@@ -120,39 +121,52 @@ CORRECTION_UPDATE,...
 ACTUAL_TIME_SECONDS:...
 ```
 
-See [`../data_logger/README.md`](../data_logger/README.md) for the logging workflow and output format.
+See [Data Logger Documentation](../data_logger/README.md) for the logging format and stored output fields.
 
 ---
 
 ## Web Interface
 
-The ESP32 creates a local Wi-Fi access point and serves a browser-based interface for displaying:
+The ESP32 creates a local Wi-Fi access point and serves a mobile-friendly browser interface.
 
-- current cabin temperature,
+The current interface displays:
+
+- current temperature in Fahrenheit,
+- model target/reference temperature,
 - estimated time remaining,
-- estimated target time,
-- temperature status.
+- ideal / not-ideal status.
 
-The current UI is still being redesigned, so the screenshot in the repository should be treated as a prototype/placeholder rather than the final interface.
+The browser uses the following routes:
 
----
+```text
+/temperaturef
+/target
+/status
+/estimate
+```
 
-## Planned V6.0 Development
-
-A possible V6.0 improvement was designed after V5.2. The proposed approach would:
-
-1. continue excluding the first 20 seconds,
-2. calculate local `k` values over consecutive 5-second intervals,
-3. compare each local `k` with the previous accepted value,
-4. limit changes between accepted values to approximately ±30%,
-5. use the accepted value for the 30-, 45-, and 60-second initial predictions.
-
-This design was **not implemented or experimentally tested**. It remains a documented future-development direction only.
+Before the 60-second model is available, the interface displays `Calculating...`.
 
 ---
 
-## Current Status
+## Experimental Local-`k` Draft
 
-The firmware repository is being cleaned up around the tested V5.2 baseline. The immediate remaining work is to finalize the code version used for the portfolio, redesign the web UI, and replace the placeholder UI screenshot.
+The development source also contains a draft of the proposed consecutive local-`k` stability approach.
 
-Additional V6.0 development and testing can be performed later if the project is continued.
+The concept:
+
+1. excludes the first 20 seconds,
+2. estimates local `k` over consecutive 5-second intervals,
+3. compares a new local value with the previously accepted value,
+4. limits unusually large changes,
+5. uses the accepted value for later prediction calculations.
+
+This logic is included for continued development only. It does **not** have a repeated vehicle-test dataset and is not used to justify the reported V5.2 performance numbers.
+
+---
+
+## Current Portfolio Status
+
+The embedded source, logger, documentation, representative data, and testing analysis are organized for portfolio review.
+
+The main remaining visual update is replacing the UI concept image in the repository with a screenshot captured from the live ESP32 interface after final testing.

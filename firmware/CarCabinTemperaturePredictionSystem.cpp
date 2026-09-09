@@ -1,7 +1,10 @@
 // ==========================================================
-// Car Cabin Temperature Prediction System - V6.0
-// Newton's Law of Cooling prediction with adaptive correction
-// Hardware, configuration, sampling, and test setup
+// Car Cabin Temperature Prediction System
+// Development firmware branch
+//
+// Latest repeated vehicle-test results in this repository: V5.2
+// This source also contains an experimental post-V5.2 local-k
+// stability draft that has not been validated by a new test series.
 // ==========================================================
 
 
@@ -160,7 +163,10 @@ bool testActive = false;
 
 
 // ==========================================================
-// INITIAL K INTERVAL STATE
+// EXPERIMENTAL LOCAL-K INTERVAL STATE
+//
+// Future-work draft only. This logic is not part of the repeated
+// V5.2 vehicle-test dataset reported in docs/testing-results.md.
 // ==========================================================
 
 float currentInitialK = -1;
@@ -438,10 +444,11 @@ void captureSample()
 }
 
 // ==========================================================
-// Car Cabin Temperature Prediction System - V6.0
-// Newton's Law of Cooling prediction with adaptive correction
-// Prediction model and adaptive-correction logic
-// Prediction model and adaptive correction
+// PREDICTION MODEL AND ADAPTIVE-CORRECTION LOGIC
+//
+// Note: the consecutive local-k initial estimator below is an
+// experimental post-V5.2 development draft. Reported test results
+// in this repository come from the completed V5.2 test campaign.
 // ==========================================================
 
 
@@ -1292,10 +1299,7 @@ void checkActualCompletion()
 }
 
 // ==========================================================
-// Car Cabin Temperature Prediction System - V6.0
-// Newton's Law of Cooling prediction with adaptive correction
-// Web interface, setup, and main loop
-// Web interface, setup, and main loop
+// WEB INTERFACE, SETUP, AND MAIN LOOP
 // ==========================================================
 
 

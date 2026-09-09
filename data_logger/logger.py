@@ -20,9 +20,14 @@ PORT = "COM6"
 BAUD = 115200
 
 try:
-    from local_config import DATA_FOLDER
+    from local_config_logger import DATA_FOLDER
 except ImportError:
-    DATA_FOLDER = "Saved Data"
+    # Default to the repository-level Saved Data folder when no
+    # machine-specific local configuration file is present.
+    DATA_FOLDER = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "Saved Data"
+    )
 
 # Initial prediction windows evaluated by the ESP32.
 MODEL_TIMES = [30, 45, 60]
