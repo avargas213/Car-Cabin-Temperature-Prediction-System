@@ -18,7 +18,7 @@ The project progressed through multiple algorithm versions focused on:
 - improving robustness in real vehicle conditions
 - balancing prediction speed with consistency
 
-The current implementation is **V6.0**.
+The latest fully implemented and vehicle-tested version is **V5.2**. A V6.0 local-`k` limiter was designed as a possible next step but was not implemented or experimentally evaluated.
 
 ## System Architecture
 
@@ -83,33 +83,33 @@ The exponential relationship is transformed into a linear regression problem so 
 
 The predicted completion time is then calculated using the estimated value of `k`.
 
-## Current V6.0 Algorithm
+## Current V5.2 Algorithm
 
-The current implementation improves the initial estimate by filtering and limiting unstable changes in `k`.
+The current tested implementation focuses on improving the initial estimate by removing unreliable startup data while retaining adaptive Newton correction.
 
 ### Initial prediction
 
 1. Collect temperature samples.
 2. Exclude the first 20 seconds from the initial `k` calculation.
-3. Calculate a local `k` for consecutive 5-second intervals.
-4. Use the first valid interval as the initial reference.
-5. Limit each subsequent accepted `k` to within ±30% of the previous accepted value.
-6. Generate initial predictions at:
+3. Calculate the initial Newton-model `k` from post-startup temperature data using the V5.2 weighted approach.
+4. Generate initial predictions at:
    - 30 seconds
    - 45 seconds
    - 60 seconds
 
+The 15-second model used in earlier versions was removed because it falls inside the startup period that testing identified as unreliable.
+
 ### Adaptive correction
 
-After the initial prediction, the system continues updating the model as new temperature data becomes available.
+After an initial prediction is generated, the system continues updating the Newton model as new temperature data becomes available.
 
-The adaptive model includes:
+The adaptive stage retains the stabilization methods developed in the V2-V4.x iterations, including adaptive `k` smoothing/limiting and prediction-change limiting. These mechanisms allow the prediction to respond to new information while reducing unrealistic jumps.
 
-- ±10% adaptive `k` limitation
-- 70/30 `k` smoothing
-- 25% maximum prediction change per correction
+### Planned V6.0 direction
 
-These mechanisms allow the model to respond to new data while reducing unrealistic prediction jumps.
+A possible V6.0 improvement was designed on paper after V5.2. The proposed approach would calculate local `k` values over consecutive 5-second intervals after the 20-second startup exclusion and limit changes between accepted values.
+
+This V6.0 approach was **not implemented or experimentally evaluated**, so it is presented only as future work rather than as a completed version.
 
 ## Testing
 
@@ -125,7 +125,7 @@ V5.2 vehicle testing compared 30-, 45-, and 60-second prediction windows using t
 
 ![Adaptive Convergence Example](images/v5_2_adaptive_convergence_test1.png)
 
-V6.0 is the current implemented architecture, but a complete repeated V6.0 vehicle-testing campaign was not completed. Therefore, no unsupported claim is made that V6.0 quantitatively outperforms V5.2.
+V5.2 is the latest completed and vehicle-tested version. The proposed V6.0 local-`k` limiter remains future work and is not presented as an implemented or validated improvement.
 
 ## Web Interface
 
@@ -136,7 +136,9 @@ The ESP32 creates a local Wi-Fi access point and hosts a browser-based interface
 - estimated target time
 - current temperature status
 
-![Web Interface](images/Website_UI_example.jpeg)
+![Current Web Interface Prototype](images/Website_UI_example.jpeg)
+
+*Current UI prototype image; the web interface is still being redesigned.*
 
 ## Data Logging
 
@@ -168,7 +170,7 @@ The system went through several major iterations:
 | V4.2 | Improved adaptive prediction stability |
 | V5.0 / V5.1 | Weighted initial `k` investigation |
 | V5.2 | Removed unstable first 20 seconds |
-| V6.0 | Consecutive 5-second initial `k` calculations with ±30% limiting |
+| Planned V6.0 | Proposed consecutive 5-second initial `k` calculations with ±30% limiting |
 
 The development process increasingly prioritized **robustness and consistency over unnecessary model complexity**.
 
@@ -231,14 +233,18 @@ More detailed documentation is available here:
 
 ## Current Status
 
-The current V6.0 firmware is implemented and combines:
+The latest completed and vehicle-tested version is V5.2. It combines:
 
 - startup-data filtering
-- consecutive local thermal-constant estimation
-- initial `k` limiting
-- adaptive model correction
-- prediction smoothing and limiting
+- 30 / 45 / 60 second initial predictions
+- adaptive Newton correction
+- prediction stabilization
 - serial experimental logging
 - local web-based output
 
-Further work would focus on collecting a larger V6.0 vehicle dataset and evaluating the current initial `k` limiter across a wider range of environmental conditions.
+Current next steps are:
+
+- redesign and polish the web interface
+- add a clear photo of the installed prototype inside the vehicle
+- update the firmware cleanly around the finalized V5.2 baseline
+- optionally implement and test the proposed V6.0 consecutive local-`k` limiter in a future development cycle

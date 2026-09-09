@@ -2,72 +2,48 @@
 
 ## Overview
 
-The firmware runs on the ESP32 and controls the embedded side of the Car Cabin Temperature Prediction System.
+The ESP32 firmware controls the embedded side of the Car Cabin Temperature Prediction System.
 
 It is responsible for:
 
-- Reading cabin temperature from a DS18B20 temperature sensor
-- Recording temperature samples during a prediction test
-- Estimating the Newton cooling/heating constant `k`
-- Generating initial predictions at 30, 45, and 60 seconds
-- Applying adaptive prediction corrections during the test
-- Sending structured serial data to the Python data logger
-- Hosting a local Wi-Fi access point
-- Serving a web interface showing temperature, status, and estimated time remaining
+- reading cabin temperature from a DS18B20 temperature sensor,
+- recording temperature samples during a prediction test,
+- estimating the Newton cooling/heating constant `k`,
+- generating initial predictions at 30, 45, and 60 seconds,
+- applying adaptive prediction corrections,
+- sending structured serial data to the Python data logger,
+- hosting a local Wi-Fi access point,
+- serving a web interface showing temperature, status, and estimated time remaining.
 
-The current implementation is Version 6.0.
+The latest completed and vehicle-tested algorithm version is **V5.2**. A V6.0 local-`k` limiter was designed as future work but was not implemented or experimentally evaluated.
 
 ---
 
 ## Hardware Interface
 
-The system uses a DS18B20 temperature sensor connected through the OneWire protocol.
+The system uses a DS18B20 digital temperature sensor connected to the ESP32 through the OneWire protocol.
 
-```cpp
-#define ONE_WIRE_BUS 13
-
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
-```
-
-The sensor is read once per second during operation.
-
-```cpp
-const unsigned long TEMPERATURE_DELAY = 1000;
-```
-
-Raw prediction-test samples are collected every 500 ms.
-
-```cpp
-const unsigned long SAMPLE_DELAY = 500;
-```
+The firmware periodically reads the sensor while also storing higher-frequency samples for prediction and experiment logging.
 
 ---
 
 ## Prediction Windows
 
-Three initial prediction models are evaluated during each test:
+V5.2 uses three initial prediction windows:
 
-```cpp
-#define MODEL_COUNT 3
-
-int modelTimes[MODEL_COUNT] =
-{
-  30,
-  45,
-  60
-};
+```text
+30 seconds
+45 seconds
+60 seconds
 ```
 
-This allows the effect of different initial observation periods to be compared using the same underlying temperature experiment.
+Earlier versions also tested a 15-second model. That model was removed after vehicle testing showed that the first approximately 15–20 seconds frequently contained unstable startup behavior.
 
 ---
 
 ## Prediction Model
 
-The system uses Newton's Law of Cooling/Heating to estimate the remaining time required for the cabin temperature to approach the target temperature.
-
-The model is based on:
+The system uses Newton's Law of Cooling/Heating:
 
 ```text
 T(t) - Ta = (T0 - Ta)e^(-kt)
@@ -75,313 +51,108 @@ T(t) - Ta = (T0 - Ta)e^(-kt)
 
 where:
 
-- `T(t)` is the temperature at time `t`
-- `Ta` is the estimated ambient temperature
-- `T0` is the starting temperature
-- `k` is the thermal response constant
+- `T(t)` is the measured temperature at time `t`,
+- `Ta` is the ambient/reference temperature,
+- `T0` is the starting temperature,
+- `k` is the estimated thermal response constant.
 
-The prediction system estimates `k` from measured temperature data and uses it to calculate the remaining time.
-
-The current implementation defines the target as being within approximately 1°F of the ambient estimate.
-
-```cpp
-const float TARGET_OFFSET = 1.0;
-```
+The exponential relationship is transformed into a regression problem so that `k` can be estimated from measured temperature data. The calculated `k` is then used to estimate the remaining time required to approach the target/reference temperature.
 
 ---
 
-## Initial `k` Estimation
+## V5.2 Startup Filter
 
-Version 6.0 does not immediately use the earliest temperature data to estimate `k`.
+Vehicle testing during V4.2 and V5.1 showed that the first approximately 15–20 seconds of the temperature response were often less representative of the long-term cabin behavior.
 
-Instead, the initial estimation begins at approximately 20 seconds into the test.
+Potential causes included:
 
-From that point, the firmware evaluates consecutive 5-second intervals:
+- sensor response delay,
+- HVAC startup behavior,
+- airflow stabilization,
+- delayed heat transfer,
+- transient cabin conditions.
 
-```text
-20-25 s
-25-30 s
-30-35 s
-35-40 s
-...
-```
-
-Each interval is used to calculate a raw `k` value using a linear regression of:
-
-```text
-ln(T - Ta)
-```
-
-against time.
-
-The first valid interval becomes the initial accepted `k`.
-
-Later interval values are compared against the previously accepted value.
+V5.2 therefore excludes the first 20 seconds from the initial `k` calculation.
 
 ---
 
-## Initial `k` Limiter
+## V5.2 Initial `k` Estimation
 
-To reduce large changes caused by noisy measurements or short-term temperature fluctuations, each new initial `k` value is limited to ±30% of the previously accepted value.
+V5.2 builds on the weighted initial-`k` approach developed during V5.0/V5.1. Post-startup portions of the temperature curve are used to estimate the initial thermal response, with later data receiving greater influence than the earliest usable measurements.
 
-```cpp
-const float INITIAL_K_CAP = 0.30;
-```
-
-The allowed range is calculated as:
-
-```cpp
-float minK =
-    previousK * (1.0 - INITIAL_K_CAP);
-
-float maxK =
-    previousK * (1.0 + INITIAL_K_CAP);
-```
-
-If the new raw value falls outside this range, it is limited before becoming the new accepted `k`.
-
-This helps make the initial prediction process more stable.
+The purpose is to reduce sensitivity to startup transients while still producing an initial prediction quickly enough to be useful.
 
 ---
 
 ## Initial Predictions
 
-Initial predictions are generated when each prediction window is reached.
+Initial predictions are generated at approximately 30, 45, and 60 seconds.
 
-For example:
-
-- 30-second model is created after approximately 30 seconds
-- 45-second model is created after approximately 45 seconds
-- 60-second model is created after approximately 60 seconds
-
-The accepted `k` value available at that time is used to calculate the remaining time.
-
-The firmware then converts that remaining time into a predicted total experiment completion time.
-
-```cpp
-float prediction =
-    elapsed + remaining;
-```
-
-The prediction is stored as both the initial and current corrected prediction.
+Each model estimates the remaining time required to approach the target/reference temperature and converts that value into a predicted total experiment completion time.
 
 ---
 
 ## Adaptive Correction
 
-After the initial prediction is created, the firmware continues collecting temperature data.
+The initial prediction is not treated as final. As additional temperature data becomes available, the firmware recalculates the Newton model and updates the prediction.
 
-Every 10 seconds, the prediction can be recalculated using the newer temperature data.
+The adaptive stage includes stabilization methods developed during the V2-V4.x iterations, including:
 
-```cpp
-const unsigned long CORRECTION_INTERVAL = 10000;
-```
+- adaptive `k` smoothing,
+- adaptive `k` change limiting,
+- prediction-change limiting.
 
-The adaptive model recalculates `k` from the available experiment data.
-
-To prevent unstable changes, the adaptive `k` value is limited to approximately ±10% of the previous adaptive value before smoothing is applied.
-
-```cpp
-float maxKChange = 0.10;
-```
-
-The accepted value is then smoothed using:
-
-```cpp
-adaptiveK[modelIndex] =
-    0.7 * adaptiveK[modelIndex]
-    +
-    0.3 * k;
-```
-
-This gives greater weight to the previous accepted value while still allowing the model to respond to new temperature behavior.
-
----
-
-## Prediction Change Limiter
-
-The firmware also limits how much the predicted completion time can change during a single adaptive update.
-
-If the newly calculated prediction differs from the previous prediction by more than 25%, the change is limited.
-
-```cpp
-if(percentChange > 0.25)
-{
-    if(newPrediction > oldPrediction)
-    {
-        newPrediction =
-            oldPrediction * 1.25;
-    }
-    else
-    {
-        newPrediction =
-            oldPrediction * 0.75;
-    }
-}
-```
-
-This prevents a single noisy update from causing a large jump in the displayed prediction.
+These mechanisms reduce the effect of individual noisy calculations while preserving the model's ability to adapt.
 
 ---
 
 ## Serial Communication
 
-The firmware sends structured messages over the serial connection so the Python data logger can record each test.
+The ESP32 sends structured serial messages to the Python logger. The logger records raw samples, initial predictions, adaptive updates, and the final observed completion time.
 
-### Raw Temperature Sample
-
-```text
-SAMPLE,experiment_time,temperature
-```
-
-### Initial Prediction
+Typical message categories include:
 
 ```text
-INITIAL_MODEL,experiment_time,temperature,model_time,prediction
+NEW PREDICTION TEST START
+SAMPLE,...
+INITIAL_MODEL,...
+CORRECTION_UPDATE,...
+ACTUAL_TIME_SECONDS:...
 ```
 
-### Adaptive Update
-
-```text
-CORRECTION_UPDATE,experiment_time,temperature,model_time,corrected_prediction
-```
-
-### Actual Completion Time
-
-```text
-ACTUAL_TIME_SECONDS:value
-```
-
-These messages are parsed by the Python logger in the `data_logger` directory.
-
----
-
-## Test Completion
-
-The firmware continuously checks whether the cabin temperature has reached the target condition.
-
-When the temperature reaches the ambient estimate, the firmware records the actual experiment completion time.
-
-```cpp
-actualTimeSeconds =
-    (millis() - testStartMillis)
-    / 1000.0;
-```
-
-The completion time is then transmitted over serial for error calculation and data analysis.
-
----
-
-## Wi-Fi Access Point
-
-The ESP32 creates its own Wi-Fi access point rather than requiring an external router.
-
-The network is configured in the firmware and the ESP32 hosts the web server locally.
-
-```cpp
-WiFi.mode(WIFI_AP);
-
-WiFi.softAP(
-    apSSID,
-    apPassword
-);
-```
-
-The web server runs on port 80.
-
-```cpp
-AsyncWebServer server(80);
-```
+See [`../data_logger/README.md`](../data_logger/README.md) for the logging workflow and output format.
 
 ---
 
 ## Web Interface
 
-The firmware contains an embedded HTML, CSS, and JavaScript interface.
+The ESP32 creates a local Wi-Fi access point and serves a browser-based interface for displaying:
 
-The interface displays:
+- current cabin temperature,
+- estimated time remaining,
+- estimated target time,
+- temperature status.
 
-- Current temperature
-- Estimated time remaining
-- Estimated clock time when the target temperature will be reached
-- Current temperature status
-
-The browser periodically requests updated values from the ESP32 using HTTP endpoints.
-
-### Temperature
-
-```text
-/temperaturef
-```
-
-### Temperature Status
-
-```text
-/status
-```
-
-### Prediction Estimate
-
-```text
-/estimate
-```
-
-The interface refreshes temperature, status, and prediction data approximately every 10 seconds while maintaining a one-second countdown display between updates.
+The current UI is still being redesigned, so the screenshot in the repository should be treated as a prototype/placeholder rather than the final interface.
 
 ---
 
-## Main Firmware Flow
+## Planned V6.0 Development
 
-The firmware follows this general sequence:
+A possible V6.0 improvement was designed after V5.2. The proposed approach would:
 
-```text
-Start ESP32
-      |
-      v
-Initialize temperature sensor
-      |
-      v
-Start Wi-Fi access point and web server
-      |
-      v
-Begin prediction test
-      |
-      v
-Read temperature
-      |
-      v
-Collect raw samples
-      |
-      v
-Estimate initial k
-      |
-      v
-Generate 30 / 45 / 60 second predictions
-      |
-      v
-Continue sampling
-      |
-      v
-Apply adaptive corrections every 10 seconds
-      |
-      v
-Update web interface
-      |
-      v
-Detect actual completion
-      |
-      v
-Send completion time to Python logger
-```
+1. continue excluding the first 20 seconds,
+2. calculate local `k` values over consecutive 5-second intervals,
+3. compare each local `k` with the previous accepted value,
+4. limit changes between accepted values to approximately ±30%,
+5. use the accepted value for the 30-, 45-, and 60-second initial predictions.
+
+This design was **not implemented or experimentally tested**. It remains a documented future-development direction only.
 
 ---
 
-## Source File
+## Current Status
 
-The full firmware implementation is located in:
+The firmware repository is being cleaned up around the tested V5.2 baseline. The immediate remaining work is to finalize the code version used for the portfolio, redesign the web UI, and replace the placeholder UI screenshot.
 
-```text
-CarCabinTemperaturePredictionSystem.cpp
-```
-
-The source file includes the sensor interface, prediction model, adaptive correction system, serial communication, Wi-Fi access point, web server, and user interface.
+Additional V6.0 development and testing can be performed later if the project is continued.

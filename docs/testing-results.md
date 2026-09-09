@@ -290,22 +290,19 @@ That decision also eliminated the 15-second model.
 
 ---
 
-## Current V6.0 Testing Status
+## Planned V6.0 Testing
 
-V6.0 is currently implemented but was not followed by a complete repeated vehicle-testing campaign.
+After V5.2, a possible V6.0 local-`k` limiter was designed as a future experiment. The proposed approach would:
 
-The current V6.0 architecture includes:
+- continue excluding the first 20 seconds,
+- calculate local `k` values over consecutive 5-second intervals,
+- limit changes between accepted local `k` values to approximately ±30%,
+- continue using the 30 / 45 / 60 second prediction windows,
+- retain the adaptive correction stage after the initial prediction.
 
-- first 20 seconds excluded,
-- consecutive non-overlapping 5-second local `k` intervals,
-- ±30% change limit between consecutive accepted initial `k` values,
-- 30 / 45 / 60 second initial predictions,
-- existing adaptive `k` limiter and smoothing,
-- 25% adaptive prediction-change limiter.
+This design was **not implemented or experimentally tested**, so there is no V6.0 result dataset and this repository makes no quantitative V6.0 performance claims.
 
-Because no complete V6.0 result set was collected, this repository does **not** claim that V6.0 quantitatively outperforms V5.2.
-
-The appropriate next experiment would record:
+If this version is implemented later, the appropriate experiment would record:
 
 - raw `k` for each 5-second interval,
 - accepted `k`,
@@ -342,6 +339,6 @@ Dynamic ambient estimation was rejected because it added sensitivity without pro
 
 Later testing generated multiple prediction-window outputs from the same temperature experiment, reducing environmental differences between model comparisons.
 
-### 7. V6.0 remains an implemented hypothesis
+### 7. V6.0 remains future work
 
-The current limiter architecture is technically implemented, but additional testing would be required before claiming a measured improvement over V5.2.
+The consecutive local-`k` limiter was designed as a possible next experiment but was not implemented. V5.2 therefore remains the latest completed and vehicle-tested version documented by the project.

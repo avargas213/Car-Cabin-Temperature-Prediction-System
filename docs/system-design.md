@@ -139,9 +139,9 @@ The implementation uses a practical target difference of approximately 1°F from
 
 ---
 
-## Current V6.0 Initial Prediction Pipeline
+## Current V5.2 Initial Prediction Pipeline
 
-The current initial-prediction architecture is:
+The latest completed and vehicle-tested initial-prediction architecture is V5.2:
 
 ```text
 Start test
@@ -153,23 +153,7 @@ Collect temperature samples
 Exclude first 20 seconds from initial-k estimation
     |
     v
-20–25 s: calculate first local k
-    |
-    v
-Accept first local k as reference
-    |
-    v
-For each next 5-second interval:
-    calculate raw k
-    |
-    v
-Compare raw k with previous accepted k
-    |
-    v
-Apply ±30% change limit
-    |
-    v
-Store new accepted k
+Estimate initial k using post-startup data
     |
     +-----------------------------+
     |             |               |
@@ -194,58 +178,15 @@ Possible sources included:
 - delayed heat transfer to the occupant area,
 - transient cabin conditions.
 
-V5.2 therefore excluded the first 20 seconds from the initial `k` calculation. V6.0 preserves this behavior.
+V5.2 therefore excludes the first 20 seconds from the initial `k` calculation and removes the earlier 15-second prediction model.
 
 ---
 
-## V6.0 Consecutive `k` Calculation
+## Initial `k` Estimation in V5.2
 
-After the startup filter, V6.0 divides the temperature data into local 5-second windows.
+V5.2 retains the weighted initial-`k` development from V5.0/V5.1, but only uses post-startup temperature data. Later portions of the available sampling window receive greater influence because testing showed that the earliest measurements were less representative of the long-term cabin thermal response.
 
-Example:
-
-```text
-20–25 s
-25–30 s
-30–35 s
-35–40 s
-40–45 s
-45–50 s
-50–55 s
-55–60 s
-```
-
-Each interval estimates a local `k` from only the samples within that interval.
-
-The first valid interval establishes the initial reference:
-
-```text
-raw k1 → accepted k1
-```
-
-Every later interval uses:
-
-```text
-raw k_n
-   |
-   v
-compare with accepted k_(n-1)
-   |
-   v
-apply ±30% limit
-   |
-   v
-accepted k_n
-```
-
-The allowed range is:
-
-```text
-minimum = 0.70 × previous accepted k
-maximum = 1.30 × previous accepted k
-```
-
-This design allows `k` to evolve while preventing a single local interval from causing an extreme change.
+The objective is not to create a theoretically perfect estimate, but to produce a more stable first prediction from limited early data.
 
 ---
 
@@ -259,15 +200,17 @@ The system creates three prediction models:
 | 45-second model | ~45 s |
 | 60-second model | ~60 s |
 
-These are **prediction times**, not `k` interval lengths.
+The total predicted completion time is calculated from the elapsed experiment time plus the predicted remaining time.
 
-At each model time, the most recently accepted V6.0 `k` is used to calculate remaining time.
+---
 
-The total predicted completion time is:
+## Planned V6.0 Direction
 
-```text
-predicted completion = elapsed time + predicted remaining time
-```
+A future V6.0 concept was documented after V5.2. The proposed design would calculate local `k` values over consecutive 5-second intervals after the 20-second startup exclusion and limit changes between consecutive accepted values to approximately ±30%.
+
+The goal would be to determine whether local parameter limiting can make the initial prediction more stable without preventing legitimate changes in cabin thermal behavior.
+
+This V6.0 concept was **not implemented or experimentally evaluated** and is not part of the current validated system architecture.
 
 ---
 
@@ -311,7 +254,7 @@ This creates multiple stability layers:
 ```text
 Startup-data filter
         ↓
-V6.0 ±30% local initial-k limiter
+V5.2 startup-data filtering / initial-k estimation
         ↓
 Initial prediction
         ↓
@@ -460,4 +403,4 @@ Potential sources of prediction error include:
 - early transient behavior,
 - limited test sample size.
 
-V6.0 is implemented but has not yet been validated with a complete new repeated-test dataset.
+V5.2 is the latest completed and vehicle-tested system. The proposed V6.0 local-`k` limiter remains future work and has not been implemented or validated.

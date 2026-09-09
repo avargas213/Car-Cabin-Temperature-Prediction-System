@@ -30,8 +30,8 @@ A recurring design principle throughout the later stages was:
 | V5.0 ambient-estimation experiment | Attempted to estimate ambient temperature dynamically | Reduce reliance on a fixed ambient/target parameter | Rejected because the added parameter increased sensitivity and inconsistency |
 | V5.0 / V5.1 weighted initial `k` | Weighted later portions of the initial temperature curve more heavily | Early sensor and airflow transients distorted initial `k` | Reduced some variability, but the first 15–20 seconds still affected the result |
 | V5.2 | Removed first 20 seconds from initial `k` calculation; removed 15 s model | Early startup data was repeatedly identified as unstable | Retained only 30 s, 45 s, and 60 s initial models; vehicle testing showed later windows were generally more accurate |
-| V6.0 | Consecutive non-overlapping 5-second local `k` calculations with ±30% change limit | `k` could still shift substantially after the startup filter | Current implementation. Each local `k` is compared with the previous accepted value before an initial prediction is generated |
-| Current status | V6.0 implemented, not fully re-tested | Limited time available for a new vehicle test series | V6.0 is documented as the current architecture, but no quantitative performance improvement is claimed without supporting test data |
+| Planned V6.0 | Proposed consecutive non-overlapping 5-second local `k` calculations with ±30% change limiting | Explore a way to stabilize `k` after the V5.2 startup filter | Design documented as future work; not implemented or experimentally evaluated |
+| Current status | V5.2 is the latest completed and vehicle-tested version | Development paused before the proposed V6.0 experiment was implemented | Quantitative conclusions are based on completed V5.2 and earlier testing |
 
 ---
 
@@ -237,53 +237,47 @@ This version was tested in a vehicle and is the latest version in the project wi
 
 ---
 
-## V6.0 — Consecutive 5-Second Initial `k` Limiter
+## Planned V6.0 — Consecutive 5-Second Initial `k` Limiter
 
-V6.0 is the current implemented design.
+After V5.2, a possible next improvement was designed to address remaining variation in the initial thermal constant `k`.
 
-Instead of calculating one initial `k` from all post-startup data, the firmware calculates local `k` values over consecutive, non-overlapping 5-second intervals:
+The proposed idea was to calculate local `k` values over consecutive, non-overlapping 5-second intervals after the 20-second startup exclusion:
 
 ```text
 0–20 s   excluded
 
-20–25 s  → first accepted k
-25–30 s  → new raw k → ±30% limit
-30–35 s  → new raw k → ±30% limit
-35–40 s  → new raw k → ±30% limit
+20–25 s  → first local k
+25–30 s  → next local k
+30–35 s  → next local k
+35–40 s  → next local k
 ...
 ```
 
-Each new raw value is compared with the **previous accepted `k`**, not always with the first value.
+Each new local value would be compared with the previously accepted value and limited to approximately ±30% before becoming the next accepted `k`.
 
-The accepted range is:
+The proposed range was:
 
 ```text
 0.70(k_previous) ≤ k_accepted ≤ 1.30(k_previous)
 ```
 
-The current accepted `k` is used when the 30-, 45-, and 60-second initial prediction times are reached.
+The intent was to allow the estimated thermal behavior to change gradually while preventing a single short interval from producing an extreme initial prediction.
 
-### Why This Is Different From V3.x
+### Important Status
 
-V3.x and V6.0 limit different parameters at different stages:
-
-| Mechanism | Stage | Limit | Purpose |
-|---|---|---:|---|
-| V6.0 initial `k` limiter | Before / during initial predictions | ±30% per 5-second interval | Prevent unstable early local `k` changes |
-| Adaptive `k` limiter | After an initial model exists | ±10% | Stabilize adaptive recalculation |
-| Adaptive `k` smoothing | After adaptive limit | 70% old / 30% new | Reduce noise further |
-| Prediction-change limiter | Final adaptive output | 25% | Prevent a single large displayed prediction jump |
+This V6.0 approach was **designed but not implemented or experimentally evaluated**. It should therefore be treated as a documented future-development concept rather than a completed version.
 
 ---
 
 ## Current Project Status
 
-V6.0 is the current firmware architecture, but a full repeated V6.0 vehicle-test dataset was not completed.
+V5.2 is the latest completed and vehicle-tested version of the project.
 
 Therefore:
 
-- V6.0 is presented as an **implemented design improvement**.
 - V5.2 is used for the latest quantitative vehicle-testing analysis.
-- No claim is made that V6.0 is more accurate than V5.2 without experimental evidence.
+- The adaptive correction behavior is supported by completed testing.
+- The proposed V6.0 local-`k` limiter is documented only as future work.
+- No performance claims are made for V6.0.
 
-This distinction is intentional and reflects the project's experimental approach: algorithm changes are separated from validated performance claims.
+The next practical project steps are to polish the web interface, document the installed vehicle prototype with a clear photo, clean up the firmware around the finalized tested baseline, and optionally implement/test the V6.0 concept later.
